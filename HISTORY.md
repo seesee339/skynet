@@ -1,3 +1,9 @@
+v1.3.1 (2020-4-26)
+-----------
+* Improve netpack(@xiaoping)
+* netpack suport crc check + zip + big data
+* rewrite filter
+
 v1.3.0 (2019-11-19)
 -----------
 * Improve mysql driver (@yxt945)

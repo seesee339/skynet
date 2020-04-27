@@ -60,14 +60,22 @@ function gateserver.start(handler)
 		end
 	end
 
-	MSG.data = dispatch_msg
+	--LWPFIX 
+	local function dispatch_data()
+		local fd, msg, sz = netpack.pop(queue)
+		if fd then
+			dispatch_msg(fd, msg, sz)
+		end
+	end
+	MSG.data = dispatch_data
+	--end
 
-	local function dispatch_queue()
+	local function dispatch_more()
 		local fd, msg, sz = netpack.pop(queue)
 		if fd then
 			-- may dispatch even the handler.message blocked
 			-- If the handler.message never block, the queue should be empty, so only fork once and then exit.
-			skynet.fork(dispatch_queue)
+			skynet.fork(dispatch_more)
 			dispatch_msg(fd, msg, sz)
 
 			for fd, msg, sz in netpack.pop, queue do
@@ -76,7 +84,7 @@ function gateserver.start(handler)
 		end
 	end
 
-	MSG.more = dispatch_queue
+	MSG.more = dispatch_more
 
 	function MSG.open(fd, msg)
 		if client_number >= maxclient then
