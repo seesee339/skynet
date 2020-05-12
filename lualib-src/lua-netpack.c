@@ -390,9 +390,9 @@ static uint8_t* zipData(const uint8_t* buffer,int size,int* pNewSize)
 	}
 
 	newData[0] = 0;
-	newData[1] = (newSize>>16)& 0xff;
-	newData[2] = (newSize>>8)& 0xff;
-	newData[3] = newSize&0xff;
+	newData[1] = (size>>16)& 0xff;
+	newData[2] = (size>>8)& 0xff;
+	newData[3] = size&0xff;
 
 	newSize+=4;
 
@@ -407,6 +407,7 @@ static void saveUC(lua_State *L,int fd,struct uncomplete *uc,uint8_t isInStack )
 	{
 		struct uncomplete * ucNew = save_uncomplete(L, fd);
 		uc->next = ucNew->next;
+		uc->pack.id = fd;
 		*ucNew = *uc;
 	}
 	else
@@ -604,7 +605,7 @@ push_more(lua_State *L, int fd, uint8_t *buffer, int size,struct uncomplete *uc,
 		}
 	}
 
-	if(uc->read == -2 || (uc->read==0&&uc->head_size>0))
+	if(uc->read == -2 || uc->head_size>0)
 	{// ext head fill
 		return deal_ext(L, fd, buffer,size,uc,isInStack);
 	}
@@ -879,16 +880,18 @@ static int packExt(lua_State *L,const char * ptr,size_t len,int iUseZip,int iUse
 	int iDataSize = len;
 	const uint8_t* pData = (const uint8_t*)ptr;
 	int headSize = 1;
-	uint8_t flag = HEAD_FLAG_TOP;
+	uint8_t flag = 0;
 	uint8_t crcRes = 0;
+	uint8_t* pZipData = NULL;
 	if(iUseZip)
 	{
 		flag = flag|HEAD_FLAG_ZIP;
-		pData = zipData(pData,(int)len,&iDataSize);
-		if(pData == NULL || iDataSize<=0)
+		pZipData = zipData(pData,(int)len,&iDataSize);
+		if(pZipData == NULL || iDataSize<=0)
 		{
 			return luaL_error(L, "zip data error: len=%d", (int)len);
 		}
+		pData = pZipData;
 	}
 	uint8_t isBigData = iDataSize>0xFFFF;
 	headSize += isBigData?4:2;
@@ -927,6 +930,10 @@ static int packExt(lua_State *L,const char * ptr,size_t len,int iUseZip,int iUse
 		iWriteSize+=1;
 	}
 	memcpy(buffer+iWriteSize, pData, iDataSize);
+	if(pZipData!=NULL)
+	{
+		skynet_free(pZipData);
+	}
 
 	lua_pushlightuserdata(L, buffer);
 	lua_pushinteger(L, iBufferSize);
